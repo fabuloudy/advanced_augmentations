@@ -167,3 +167,44 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
     return cloned
 
 
+# скрещивание
+
+def crossover(x1, x2):
+    ba1 = bytearray(x1)
+    ba2 = bytearray(x2)
+    step = 2
+    # if bps == 8:
+    #    step = 1
+    for i in range(header_len, len(x1), step):
+        if np.random.random() < 0.5:
+            ba2[i] = ba1[i]
+    return bytes(ba2)
+
+# мутация
+def mutation(x, eps_limit):
+    ba = bytearray(x)
+    step = 2
+    #if pbs == 8:
+    #    step = 1
+    for i in range(header_len, len(x), step):
+        #if np.random.random() < 0.05:
+        # ba[i] = max(0, min(255, np.random.choice(list(range(ba[i]-4, ba[i]+4)))))
+        #elif np.random.random() < 0.10:
+        #ba[i] = max(0, min(255, ba[i] + np.random.choice([-1, 1])))
+        if np.random.random() < mutation_p:
+            int_x = int.from_bytes(ba[i:i+2], byteorder='big', signed=True)
+            new_int_x = min(data_max, max(data_min, int_x + np.random.choice(range(-eps_limit, eps_limit))))
+            new_bytes = int(new_int_x).to_bytes(2, byteorder='big', signed=True)
+            ba[i] = new_bytes[0]
+            ba[i+1] = new_bytes[1]
+    return bytes(ba)
+
+# hidden voice commands - туда обратно MFCC
+
+from librosa.feature.inverse import mfcc_to_audio
+from torchaudio.transforms import MFCC
+
+def hidden_voice_commands(samples):
+    transformator = MFCC()
+    mfcc = transformator(samples)
+    return mfcc_to_audio(mfcc)
