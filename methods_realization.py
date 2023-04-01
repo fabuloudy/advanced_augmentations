@@ -138,3 +138,32 @@ def random_phase_generation(samples):
 
 #Splice OUT https://arxiv.org/pdf/2110.00046.pdf
 
+def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False):
+    cloned = spec.clone()
+    cloned2 = spec.clone()
+    len_spectro = cloned.shape[2]
+
+    for i in range(0, num_masks):
+        t = random.randrange(0, T)
+        if t >= len_spectro:
+            return cloned
+        t_zero = random.randrange(0, len_spectro - t)
+        # avoids randrange error if values are equal and range is empty
+        if (t_zero == t_zero + t): return cloned
+
+        mask_end = random.randrange(t_zero, t_zero + t)
+        if splice_out:
+            a = cloned2[0][:, :t_zero - 1]
+            b = cloned2[0][:, mask_end:]
+            new_spec = torch.cat((a, b), -1)
+            print(new_spec.shape)
+            new_dim_spec = torch.cat([new_spec.unsqueeze(0), new_spec.unsqueeze(0), new_spec.unsqueeze(0)], 0)
+            return new_dim_spec
+        elif replace_with_zero:
+            cloned[0][:, t_zero:mask_end] = 0
+        else:
+            cloned[0][:, t_zero:mask_end] = cloned.mean()
+    print(cloned.shape)
+    return cloned
+
+
