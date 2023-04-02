@@ -1,7 +1,3 @@
-# GeneticAttack https://github.com/nesl/adversarial_audio
-# GeneticAttackModification https://github.com/rtaori/Black-Box-Audio
-
-
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import torchaudio
@@ -23,13 +19,18 @@ import IPython.display as ipd
 import matplotlib.pyplot as plt
 import torchaudio
 import random
+import torch
+import numpy as np
+from scipy.signal import butter,filtfilt
+import numpy as np
+# Filter requirements.
+import torchaudio.transforms as transform
 
 from audio_visualization import play_audio, display_audio, display_spectrogram, get_mel_spectrogram, plot_waveform
-from augmentation_utils import AugmentationMethod
-
-# InaudibleVoiceCommands делаем сами # то же самое что и высокие частоты
+from augmentation_utils import batch
 
 
+# InaudibleVoiceCommands
 def butter_lowpass_filter(data, cutoff, nyq, order):
     normal_cutoff = cutoff / nyq
     # Get the filter coefficients
@@ -37,51 +38,46 @@ def butter_lowpass_filter(data, cutoff, nyq, order):
     y = filtfilt(b, a, data)
     return y
 
+def unaudible_voice_command(samples, fs = 16000,
+                                     cutoff = 8000,
+                                     nyq = 1,
+                                     order = 2,
+                                     n1 = 0,
+                                     n2 = 0,
+                                     return_wav_format = True):
 
-import numpy as np
-from scipy.signal import butter,filtfilt
-# Filter requirements.
-import torchaudio.transforms as transform
+    # Low-Pass Filtering
+    nf = nyq * fs  # Nyquist Frequency
+    low_pass_filtered_waveform = butter_lowpass_filter(samples, cutoff, nf, order)
 
-data, samples_rate = torchaudio.load('C:\\Users\\yulch\\PycharmProjects\\testAugmentations\\speech_commands_v0.01\\bird\\0a7c2a8d_nohash_0.wav')
-T = 1.0         # Sample Period
-fs = 16000       # sample rate, Hz
-cutoff = 8000      # desired cutoff frequency of the filter, Hz ,      slightly higher than actual 1.2 Hz
-nyq = 0.5 * fs  # Nyquist Frequency
-order = 2       # sin wave can be approx represented as quadratic
-n = int(T * fs) # total number of samples
-print('here')
-# Filter the data, and plot both the original and filtered signals.
+    # Upsampling
+    resample_rate = 192000
+    resampler = transform.Resample(16000, resample_rate)
+    resampled_waveform = resampler(torch.Tensor(low_pass_filtered_waveform.copy()))
+    if n1 != 0:
+        resampled_waveform *= n1
+    else:
+        resampled_waveform = 1 / max(abs(resampled_waveform)) * resampled_waveform
 
-import torch
-#plot_waveform(data, 16000)
-y = butter_lowpass_filter(data, cutoff, fs, order)
-#plot_waveform(torch.Tensor(y.copy()), 16000)
-resample_rate = 192000
-resampler = transform.Resample(16000, resample_rate)
-resampled_waveform = resampler(torch.Tensor(y.copy()))
-resampled_waveform = 1 / max(abs(resampled_waveform)) * resampled_waveform
+    # Ultrasound Modulation
+    carrier_freq = 30000
+    dt = 1 / resample_rate
+    t = np.arange(0, resample_rate*dt, dt)
+    a = list(map(lambda x: math.cos(2 * math.pi * carrier_freq * x), t))
+    c = np.multiply(resampled_waveform[0], a)
 
-carrier_freq = 30000
-
-dt = 1 / resample_rate
-
-import numpy as np
-t = np.arange(0, resample_rate*dt, dt)
-print(t)
-print(math.cos(2 * math.pi * carrier_freq * 1.250000e-04))
-
-a = list(map(lambda x: math.cos(2 * math.pi * carrier_freq * x), t))
-b = list(map(lambda x: math.cos(2 * math.pi * carrier_freq * x), t))
-c = np.multiply(resampled_waveform[0], a)
-ultrasound = c + torch.Tensor(b)
-ultrasound =  1/max(abs(ultrasound)) * ultrasound
-
-
-sample = [ultra * 0x8000 if ultra < 0  else ultra * 0x7fff for ultra in ultrasound]
-plot_waveform(torch.Tensor(sample).unsqueeze(0),resample_rate)
-torchaudio.save(filepath = "tmp5.wav", src = torch.Tensor(sample).unsqueeze(0), sample_rate=resample_rate)
-print(ultrasound.unsqueeze(0))
+    # Carrier Wave Addition
+    b = list(map(lambda x: math.cos(2 * math.pi * carrier_freq * x), t))
+    ultrasound = c + torch.Tensor(b)
+    if n2 != 0:
+        ultrasound *= n2
+    else:
+        ultrasound =  1/max(abs(ultrasound)) * ultrasound
+    # conversion for excluding problems with sound playing
+    if return_wav_format:
+        samples = [ultra * 0x8000 if ultra < 0  else ultra * 0x7fff for ultra in ultrasound]
+        return torch.Tensor(samples).unsqueeze(0)
+    return ultrasound.unsqueeze(0)
 
 # TimeDomainInversion
 
@@ -167,37 +163,39 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
     return cloned
 
 
-# скрещивание
 
+# скрещивание
+header_len = 44
 def crossover(x1, x2):
-    ba1 = bytearray(x1)
-    ba2 = bytearray(x2)
+    ba1 = x1
+    ba2 = x2
     step = 2
     # if bps == 8:
     #    step = 1
     for i in range(header_len, len(x1), step):
         if np.random.random() < 0.5:
             ba2[i] = ba1[i]
-    return bytes(ba2)
+    return ba2
+
 
 # мутация
-def mutation(x, eps_limit):
-    ba = bytearray(x)
-    step = 2
+mutation_p = 0.0005
+data_max = 32767
+data_min = -32768
+def mutation(x, eps_limit=256):
+
     #if pbs == 8:
     #    step = 1
-    for i in range(header_len, len(x), step):
+    for i in range(header_len, len(x)):
         #if np.random.random() < 0.05:
         # ba[i] = max(0, min(255, np.random.choice(list(range(ba[i]-4, ba[i]+4)))))
         #elif np.random.random() < 0.10:
         #ba[i] = max(0, min(255, ba[i] + np.random.choice([-1, 1])))
         if np.random.random() < mutation_p:
-            int_x = int.from_bytes(ba[i:i+2], byteorder='big', signed=True)
-            new_int_x = min(data_max, max(data_min, int_x + np.random.choice(range(-eps_limit, eps_limit))))
-            new_bytes = int(new_int_x).to_bytes(2, byteorder='big', signed=True)
-            ba[i] = new_bytes[0]
-            ba[i+1] = new_bytes[1]
-    return bytes(ba)
+            new_int_x = min(data_max, max(data_min, x[i] + np.random.choice(range(-eps_limit, eps_limit))))
+            x[i] = new_int_x
+
+    return x
 
 # hidden voice commands - туда обратно MFCC
 
@@ -207,4 +205,7 @@ from torchaudio.transforms import MFCC
 def hidden_voice_commands(samples):
     transformator = MFCC()
     mfcc = transformator(samples)
-    return mfcc_to_audio(mfcc)
+    return mfcc_to_audio(mfcc.numpy())
+
+
+data, samples_rate = torchaudio.load('C:\\Users\\yulch\\PycharmProjects\\testAugmentations\\speech_commands_v0.01\\bird\\0a7c2a8d_nohash_0.wav')
