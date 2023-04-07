@@ -89,35 +89,25 @@ def time_domain_inversion(samples):
     return torch.Tensor(new_sample).unsqueeze(0)
 
 # AdditionHighFrequencies
-def high_frequency_addition(samples):
-    stft_coefficients = stft(samples, n_fft=1024, return_complex=True).squeeze(0)
-    print(stft_coefficients[30:].shape)
-    print(stft_coefficients.shape)
-    stft_coefficients = torch.cat((stft_coefficients, stft_coefficients+20))
-    return istft(stft_coefficients.unsqueeze(0), n_fft=2050)
+def high_frequency_addition(samples, n_fft=1024, n_additional_stft = 32, raising_frequency = 32):
+    stft_coefficients = stft(samples, n_fft=n_fft, return_complex=True).squeeze(0)
+    stft_coefficients = torch.cat([stft_coefficients,
+                                   stft_coefficients[:n_additional_stft] + raising_frequency])
+    new_n_fft = (n_additional_stft + int(n_fft / 2)) * 2
+    return istft(stft_coefficients.unsqueeze(0), n_fft=new_n_fft)
 
 
 # PhaseGeneration
 def random_phase_generation(samples):
     stft_coefficients = stft(samples, n_fft=1024, return_complex=True).squeeze(0)
 
-    minmax_raw_values = []
-    for raw in stft_coefficients:
-        real_max = raw[0].real
-        real_min = raw[0].real
-        for amplitude in raw:
-            if amplitude.real > real_max:
-                real_max = amplitude.real
-            if amplitude.real < real_min:
-                real_min = amplitude.real
-        minmax_raw_values.append({'real_max': real_max,
-                                  'real_min': real_min})
-
     for i in range(len(stft_coefficients)):
         tmp = stft_coefficients[i]
         for j in range(len(tmp)):
-            y = torch.Tensor([math.sqrt(
-                math.pow(float(tmp[j].real), 2) + math.pow(float(tmp[j].imag), 2))]).type(torch.float)[0]
+            # count magnitude
+            # magnitude = abs(sqrt(real^2 + imag^2))
+            y = torch.Tensor([math.fabs(math.sqrt(
+                math.pow(float(tmp[j].real), 2) + math.pow(float(tmp[j].imag), 2)))]).type(torch.float)[0]
             local_real_min, local_real_max = -y, y
             amplitude_real = random.uniform(local_real_min, local_real_max)
             sign = 1 if random.random() < 0.5 else -1
@@ -207,5 +197,10 @@ def hidden_voice_commands(samples):
     mfcc = transformator(samples)
     return mfcc_to_audio(mfcc.numpy())
 
-
+"""
 data, samples_rate = torchaudio.load('C:\\Users\\yulch\\PycharmProjects\\testAugmentations\\speech_commands_v0.01\\bird\\0a7c2a8d_nohash_0.wav')
+res = random_phase_generation(data)
+torchaudio.save('tmp9.wav',
+                            res,
+                            16000)
+"""
