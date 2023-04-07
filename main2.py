@@ -5,14 +5,12 @@ from dataset_creation import SoundDS
 import torch
 from augmentation_utils import get_batch
 from classificator_usage import run_resnet
+from tqdm import tqdm
 
 CLASS_TO_ID = {}
 BATCH_SIZE = 64
-"""
-y_true_tensor = torch.cat((torch.cat(y_true[:1+1]),torch.cat(y_true[1+1:])))
-y_pred_tensor = torch.cat((torch.cat(y_pred[:1+1]),torch.cat(y_pred[1+1:])))
-print(classification_report(y_true_tensor.tolist(), y_pred_tensor.argmax(1).tolist()))
-"""
+from methods_realization import time_domain_inversion, \
+    high_frequency_addition, random_phase_generation, butter_lowpass_filter
 
 
 def prepare_dataset(dataset_tmp):
@@ -27,13 +25,74 @@ def prepare_dataset(dataset_tmp):
     return train_dataloader, val_dataloader, test_dataloader
 
 
+def time_domain_inversion_augment_data(dataset):
+    augmented_data = []
+    for audio in tqdm(dataset):
+        audio_new = time_domain_inversion(audio["samples"])
+        augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": audio["class_id"]})
+    return augmented_data
 
-def time_domain_inversion_test(dataset_tmp):
-    melgan_tool = MelGanTool()
-    augmented_audio = melgan_tool.augment_data(dataset_tmp["train"])
+def high_frequency_addition_augment_data(dataset):
+    augmented_data = []
+    for audio in tqdm(dataset):
+        audio_new = high_frequency_addition(audio["samples"],
+                                            n_fft=1024,
+                                            n_additional_stft=32,
+                                            raising_frequency=32)
+        augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": audio["class_id"]})
+    return augmented_data
+
+def random_phase_generation_augment_data(dataset):
+    augmented_data = []
+    for audio in tqdm(dataset):
+        audio_new = random_phase_generation(audio["samples"])
+        augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": audio["class_id"]})
+    return augmented_data
+
+def time_domain_inversion_test(dataset_tmp, matrix_filename):
+    augmented_audio = time_domain_inversion_augment_data(dataset_tmp["train"])
     dataset_tmp["train"] = dataset_tmp["train"] + augmented_audio
     train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
     run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
+
+def high_frequency_addition_test(dataset_tmp, matrix_filename):
+    augmented_audio = time_domain_inversion_augment_data(dataset_tmp["train"])
+    dataset_tmp["train"] = dataset_tmp["train"] + augmented_audio
+    train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
+    run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
+
+
+def download_random_phase_gen_audio():
+    files = [item for item in helpers.find_files('./random_phase_gen', '.wav')]
+    class_to_id = {}
+    for i in range(31):
+        class_to_id[str(i)] = i
+    return files, class_to_id
+
+def random_phase_generation_test(dataset_tmp, matrix_filename):
+    augmented_audio, class_to_id = download_random_phase_gen_audio()
+    dataset_tmp["train"] += load_from_file_augment(augmented_audio, class_to_id)
+    train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
+    run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
+
+import torchaudio
+def random_phase_generation_audio(dataset_tmp, batch_number):
+    batches = [train_batch for train_batch in get_batch(dataset_tmp["train"], 10000)]
+    augmented_audio = random_phase_generation_augment_data(batches[batch_number])
+    for i in tqdm(range(len(augmented_audio))):
+        name = f"./random_phase_gen/batch_{batch_number}_class_{str(augmented_audio[i]['class_id'])}_number_{str(i)}.wav"
+        if torch.is_tensor(augmented_audio[i]["samples"]):
+            torchaudio.save(name,
+                            augmented_audio[i]["samples"],
+                            16000)
+        else:
+            torchaudio.save(name,
+                            torch.from_numpy(augmented_audio[i]["samples"]),
+                            16000)
+
 
 def main():
 
@@ -48,6 +107,9 @@ def main():
     dataset["train"] = load_from_file(dataset_tmp["train"], class_to_id)
     dataset["validation"] = load_from_file(dataset_tmp["validation"], class_to_id)
     dataset["test"] = load_from_file(dataset_tmp["test"], class_to_id)
-    #time_domain_inversion_test(dataset)
+    #time_domain_inversion_test(dataset, 'tdi_conf_matrix.png')
+    #high_frequency_addition_test(dataset, 'hfa_conf_matrix.png')
+    #random_phase_generation_test(dataset, 'rfg_conf_matrix.png')
+    random_phase_generation_test(dataset, 'rpg_conf_matrix.png')
 
 main()

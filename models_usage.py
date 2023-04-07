@@ -17,7 +17,31 @@ class MelGanTool:
         self.vocoder = torch.hub.load('seungwonpark/melgan', 'melgan')
         self.vocoder.eval()
 
+    def augment_samples(self, audio):
+        stft = TacotronSTFT(filter_length=1024,
+                           hop_length=256,
+                           win_length=1024,
+                           n_mel_channels=80,
+                           sampling_rate=22050,
+                           mel_fmin=0.0,
+                           mel_fmax=8000.0)
+        if torch.cuda.is_available():
+            self.vocoder.cuda()
+        else:
+            print('keke')
+            return
+        with torch.no_grad():
 
+            wav = audio
+            try:
+                mel = stft.mel_spectrogram(wav)
+            except Exception:
+                print(wav)
+                raise Exception
+            mel = mel.cuda()
+            audio_new = self.vocoder.inference(mel)
+            audio_new = torch.Tensor(preprocessing.normalize(audio_new.unsqueeze(0).cpu()))
+        return audio_new
     def augment_data(self, dataset: list) -> Optional[list]:
         augmented_audio = []
         stft = TacotronSTFT(filter_length=1024,

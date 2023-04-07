@@ -36,81 +36,74 @@ DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 64
 CLASS_TO_ID = {}
 
-
-class Classificator:
-
-    def __init__(self, model: Module, loss_fn, optimizer, device: str):
-        self.model = model
-        self.loss_fn = loss_fn
-        self.optimizer = optimizer
-        self.device = device
-
-    def train(self, dataloader):
-        size = len(dataloader.dataset)
-        self.model.train()
-        exceptions = list()
-        batch = 0
-        try:
-            for batch, (x, y) in enumerate(tqdm(dataloader, ncols=80, ascii='True', desc='Train')):
-                x, y = x.to(self.device), y.to(self.device)
-                # Compute prediction error
-                pred = self.model(x)
-                loss_batch = self.loss_fn(pred, y)
-
-                # Backpropagation
-                self.optimizer.zero_grad()
-                loss_batch.backward()
-                self.optimizer.step()
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
-                if batch % 100 == 0:
-                    loss_batch, current = loss_batch.item(), batch * len(x)
-                    print(f"loss: {loss_batch:>7f}  [{current:>5d}/{size:>5d}]")
-        except Exception:
-            exceptions.append(batch)
-        print(f'Problem batches that occurred during model training: {exceptions}.')
+def train(dataloader, model, loss_fn, optimizer):
+    size = len(dataloader.dataset)
+    model.train()
+    exceptions = list()
+    batch = -1
+    try:
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            # Compute prediction error
+            pred = model(X)
+            loss = loss_fn(pred, y)
 
-    def validation(self, dataloader):
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        self.model.eval()
-        test_loss, correct = 0, 0
+            if batch % 100 == 0:
+                loss, current = loss.item(), batch * len(X)
+                print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+    except Exception as e:
+        exceptions.append(batch)
+    print(exceptions)
 
-        with torch.no_grad():
-            for batch, (x, y) in enumerate(tqdm(dataloader, ncols=80, ascii='True', desc='Validation')):
-                x, y = x.to(self.device), y.to(self.device)
-                pred = self.model(x)
-                test_loss += self.loss_fn(pred, y).item()
-                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
-        size = len(dataloader.dataset)
-        num_batches = len(dataloader)
-        test_loss /= num_batches
-        correct /= size
+def validation(dataloader, model, loss_fn):
+    size = len(dataloader.dataset)
+    num_batches = len(dataloader)
+    model.eval()
+    test_loss, correct = 0, 0
+    with torch.no_grad():
+        for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            test_loss += loss_fn(pred, y).item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
-        print(f"Val Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    test_loss /= num_batches
+    correct /= size
+    print(f"Val Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
-    def test(self, dataloader):
 
-        self.model.eval()
+from sklearn.metrics import classification_report
 
-        correct = 0
-        y_true = list()
-        y_pred = list()
 
-        with torch.no_grad():
-            for batch, (x, y) in enumerate(tqdm(dataloader, ncols=80, ascii='True', desc='Test')):
-                y_true.append(y)
+def test(dataloader, model):
+    size = len(dataloader.dataset)
+    num_batches = len(dataloader)
+    model.eval()
+    correct = 0
+    y_true = list()
+    y_pred = list()
+    with torch.no_grad():
+        for X, y in dataloader:
+            y_true.append(y)
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            y_pred.append(pred)
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
-                x, y = x.to(self.device), y.to(self.device)
-                pred = self.model(x)
-                y_pred.append(pred)
-                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-        size = len(dataloader.dataset)
-        correct /= size
+    correct /= size
 
-        print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}\n")
+    # print(classification_report(torch.cat(y_true), torch.cat(y_pred)))
+    print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}\n")
 
-        return y_true, y_pred
 
 
 
@@ -119,20 +112,19 @@ def run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filenam
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-
-    resnet_classificator = Classificator(model, loss_fn, optimizer, DEVICE)
-
-    epochs = 3
-
+    epochs = 30
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
-        resnet_classificator.train(train_dataloader)
-        resnet_classificator.validation(val_dataloader)
-        y_true, y_pred = resnet_classificator.test(test_dataloader)
-    resnet_classificator.model.eval()
+        train(train_dataloader, model, loss_fn, optimizer)
+        validation(val_dataloader, model, loss_fn)
+
+    print("Done!")
+
+
+    epochs = 6
+    # model.eval()
+    y_true, y_pred = test(test_dataloader, model)
     count_metrics(y_true, y_pred, matrix_filename)
-
-
 
 
     print("Done!")
