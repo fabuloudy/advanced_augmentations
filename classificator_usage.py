@@ -103,6 +103,7 @@ def test(dataloader, model):
 
     # print(classification_report(torch.cat(y_true), torch.cat(y_pred)))
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}\n")
+    return y_true, y_pred
 
 
 
@@ -112,7 +113,7 @@ def run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filenam
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    epochs = 30
+    epochs = 3
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
         train(train_dataloader, model, loss_fn, optimizer)
