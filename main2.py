@@ -6,6 +6,7 @@ import torch
 from augmentation_utils import get_batch
 from classificator_usage import run_resnet
 from tqdm import tqdm
+from methods_realization import mutation, crossover
 
 CLASS_TO_ID = {}
 BATCH_SIZE = 64
@@ -93,6 +94,58 @@ def random_phase_generation_audio(dataset_tmp, batch_number):
                             torch.from_numpy(augmented_audio[i]["samples"]),
                             16000)
 
+def mutation_augment_data(dataset):
+    augmented_data = []
+    for audio in tqdm(dataset):
+        audio_new = mutation(audio["samples"])
+        augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": audio["class_id"]})
+    return augmented_data
+
+def download_mutation_audio():
+    files = [item for item in helpers.find_files('./mutation', '.wav')]
+    class_to_id = {}
+    for i in range(31):
+        class_to_id[str(i)] = i
+    return files, class_to_id
+def mutation_test(dataset_tmp, matrix_filename):
+    augmented_audio, class_to_id = download_mutation_audio()
+    dataset_tmp["train"] += load_from_file_augment(augmented_audio, class_to_id)
+    train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
+    run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
+
+import numpy as np
+def crossover_augment_data(dataset):
+
+    augmented_data = []
+    np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2, False)
+    for _ in tqdm(dataset):
+        audio_new = mutation(audio["samples"])
+        augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": audio["class_id"]})
+    return augmented_data
+
+
+def mutation_audio(dataset_tmp, batch_number):
+    batches = [train_batch for train_batch in get_batch(dataset_tmp["train"], 10000)]
+    augmented_audio = mutation_augment_data(batches[batch_number])
+    for i in tqdm(range(len(augmented_audio))):
+        name = f"./mutation/batch_{batch_number}_class_{str(augmented_audio[i]['class_id'])}_number_{str(i)}.wav"
+        if torch.is_tensor(augmented_audio[i]["samples"]):
+            torchaudio.save(name,
+                            augmented_audio[i]["samples"],
+                            16000)
+        else:
+            torchaudio.save(name,
+                            torch.from_numpy(augmented_audio[i]["samples"]),
+                            16000)
+
+def crossover_test(dataset_tmp, matrix_filename):
+    augmented_audio = crossover_augment_data(dataset_tmp["train"])
+    dataset_tmp["train"] = dataset_tmp["train"] + augmented_audio
+    train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
+    run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
+
 
 def main():
 
@@ -110,6 +163,9 @@ def main():
     #time_domain_inversion_test(dataset, 'tdi_conf_matrix.png')
     #high_frequency_addition_test(dataset, 'hfa_conf_matrix.png')
     #random_phase_generation_test(dataset, 'rfg_conf_matrix.png')
-    random_phase_generation_test(dataset, 'rpg_conf_matrix.png')
+    #random_phase_generation_test(dataset, 'rpg_conf_matrix.png')
+    mutation_test(dataset, 'mutation_conf_matrix.png')
+
+
 
 main()

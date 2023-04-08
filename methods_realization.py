@@ -172,20 +172,16 @@ def crossover(x1, x2):
 mutation_p = 0.0005
 data_max = 32767
 data_min = -32768
-def mutation(x, eps_limit=256):
-
-    #if pbs == 8:
-    #    step = 1
+def mutation(x):
+    x = x.squeeze(0)
+    max_x = abs(max(x))
+    min_x = abs(min(x))
+    eps_limit = max_x if max_x > min_x else min_x
     for i in range(header_len, len(x)):
-        #if np.random.random() < 0.05:
-        # ba[i] = max(0, min(255, np.random.choice(list(range(ba[i]-4, ba[i]+4)))))
-        #elif np.random.random() < 0.10:
-        #ba[i] = max(0, min(255, ba[i] + np.random.choice([-1, 1])))
         if np.random.random() < mutation_p:
-            new_int_x = min(data_max, max(data_min, x[i] + np.random.choice(range(-eps_limit, eps_limit))))
+            new_int_x = min(data_max, max(data_min, x[i] + random.uniform(-eps_limit, eps_limit)))
             x[i] = new_int_x
-
-    return x
+    return x.unsqueeze(0)
 
 # hidden voice commands - туда обратно MFCC
 
