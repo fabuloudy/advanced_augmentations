@@ -157,15 +157,15 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
 # скрещивание
 header_len = 44
 def crossover(x1, x2):
-    ba1 = x1
-    ba2 = x2
+    ba1 = x1.unsqueeze(0)
+    ba2 = x2.unsqueeze(0)
     step = 2
     # if bps == 8:
     #    step = 1
     for i in range(header_len, len(x1), step):
         if np.random.random() < 0.5:
             ba2[i] = ba1[i]
-    return ba2
+    return ba2.squeeze(0)
 
 
 # мутация

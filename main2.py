@@ -116,13 +116,16 @@ def mutation_test(dataset_tmp, matrix_filename):
 
 import numpy as np
 def crossover_augment_data(dataset):
-
+    splitted_data = dict([(i, []) for i in range(30)])
+    for audio in dataset:
+        splitted_data[audio["class_id"]].append(audio["samples"])
     augmented_data = []
-    np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2, False)
-    for _ in tqdm(dataset):
-        audio_new = mutation(audio["samples"])
-        augmented_data.append({"samples": audio_new.cpu(),
-                               "class_id": audio["class_id"]})
+    for class_id, list_audio in splitted_data.items():
+        for _ in tqdm(range(len(list_audio))):
+            cross_pair = np.random.choice(list_audio, size=2, replace=False)
+            audio_new = crossover(cross_pair[0], cross_pair[1])
+            augmented_data.append({"samples": audio_new.cpu(),
+                               "class_id": class_id})
     return augmented_data
 
 
@@ -164,8 +167,8 @@ def main():
     #high_frequency_addition_test(dataset, 'hfa_conf_matrix.png')
     #random_phase_generation_test(dataset, 'rfg_conf_matrix.png')
     #random_phase_generation_test(dataset, 'rpg_conf_matrix.png')
-    mutation_test(dataset, 'mutation_conf_matrix.png')
-
+    #mutation_test(dataset, 'mutation_conf_matrix.png')
+    crossover_test(dataset, 'crossover_conf_matrix.png')
 
 
 main()
