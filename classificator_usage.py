@@ -100,8 +100,7 @@ def test(dataloader, model):
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
     correct /= size
-
-    # print(classification_report(torch.cat(y_true), torch.cat(y_pred)))
+    print('ALLO')
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}\n")
     return y_true, y_pred
 
@@ -118,11 +117,10 @@ def run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filenam
         print(f"Epoch {t + 1}\n-------------------------------")
         train(train_dataloader, model, loss_fn, optimizer)
         validation(val_dataloader, model, loss_fn)
+        test(test_dataloader, model)
 
     print("Done!")
 
-
-    epochs = 6
     # model.eval()
     y_true, y_pred = test(test_dataloader, model)
     count_metrics(y_true, y_pred, matrix_filename)
