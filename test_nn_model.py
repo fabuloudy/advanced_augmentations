@@ -82,8 +82,6 @@ def main():
     files = [item for item in helpers.find_files('./speech_commands_v0.01', '.wav')]
     dataset_tmp = split_train_val_test(files, r'_nohash_.*$')
     class_to_id = dataset_tmp["class_to_id"]
-    global CLASS_TO_ID
-    CLASS_TO_ID = class_to_id
     dataset = dict()
     dataset["train"] = load_from_file(dataset_tmp["train"], class_to_id)
     dataset["validation"] = load_from_file(dataset_tmp["validation"], class_to_id)
