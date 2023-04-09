@@ -79,23 +79,17 @@ def time_domain_inversion_test(dataset_tmp):
     run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
 
 def main():
-
     files = [item for item in helpers.find_files('./speech_commands_v0.01', '.wav')]
     dataset_tmp = split_train_val_test(files, r'_nohash_.*$')
     class_to_id = dataset_tmp["class_to_id"]
-
     global CLASS_TO_ID
     CLASS_TO_ID = class_to_id
-
     dataset = dict()
     dataset["train"] = load_from_file(dataset_tmp["train"], class_to_id)
     dataset["validation"] = load_from_file(dataset_tmp["validation"], class_to_id)
     dataset["test"] = load_from_file(dataset_tmp["test"], class_to_id)
-    original_test(dataset, 'original_conf_matrix.png')
+    #original_test(dataset, 'original_conf_matrix.png')
     #mel_gan_test(dataset, 'melgan_conf_matrix.png')
     #diffwave_test(dataset, 'diffwave_conf_matrix.png', 'diffwave_weights_state.pth')
-    #diffwave_audio(dataset, 5)
-    #test_model(dataset)
-    #time_domain_inversion_test(dataset)
 
 main()

@@ -1,34 +1,16 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-import torchaudio
-from scipy import signal
-import plotly.graph_objects as go
-from audio_visualization import plot_waveform
-
-import torch
-import torchaudio
 from torch import stft, istft
-import numpy as np
 import math
-from torchaudio.transforms import MelSpectrogram, MFCC
-import torch
-import matplotlib.pyplot as plt
-import numpy as np
-from IPython.display import Audio
-import IPython.display as ipd
-import matplotlib.pyplot as plt
-import torchaudio
 import random
 import torch
-import numpy as np
 from scipy.signal import butter,filtfilt
 import numpy as np
-# Filter requirements.
 import torchaudio.transforms as transform
+from librosa.feature.inverse import mfcc_to_audio
+from torchaudio.transforms import MFCC
 
-from audio_visualization import play_audio, display_audio, display_spectrogram, get_mel_spectrogram, plot_waveform
 from augmentation_utils import batch
-
 
 # InaudibleVoiceCommands
 def butter_lowpass_filter(data, cutoff, nyq, order):
@@ -45,7 +27,6 @@ def unaudible_voice_command(samples, fs = 16000,
                                      n1 = 0,
                                      n2 = 0,
                                      return_wav_format = True):
-
     # Low-Pass Filtering
     nf = nyq * fs  # Nyquist Frequency
     low_pass_filtered_waveform = butter_lowpass_filter(samples, cutoff, nf, order)
@@ -80,7 +61,6 @@ def unaudible_voice_command(samples, fs = 16000,
     return ultrasound.unsqueeze(0)
 
 # TimeDomainInversion
-
 def time_domain_inversion(samples):
     tmp = samples.squeeze(0)
     new_sample = []
@@ -96,11 +76,9 @@ def high_frequency_addition(samples, n_fft=1024, n_additional_stft = 32, raising
     new_n_fft = (n_additional_stft + int(n_fft / 2)) * 2
     return istft(stft_coefficients.unsqueeze(0), n_fft=new_n_fft)
 
-
 # PhaseGeneration
 def random_phase_generation(samples):
     stft_coefficients = stft(samples, n_fft=1024, return_complex=True).squeeze(0)
-
     for i in range(len(stft_coefficients)):
         tmp = stft_coefficients[i]
         for j in range(len(tmp)):
@@ -117,13 +95,10 @@ def random_phase_generation(samples):
                 raise Exception
             complex_amplitude = torch.complex(torch.Tensor([amplitude_real]).type(torch.float),
                                               sign * torch.Tensor([amplitude_imag]).type(torch.float))
-
             stft_coefficients[i][j] = complex_amplitude.unsqueeze(0)
-
     return istft(stft_coefficients.unsqueeze(0), n_fft=1024)
 
 #Splice OUT https://arxiv.org/pdf/2110.00046.pdf
-
 def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False):
     cloned = spec.clone()
     cloned2 = spec.clone()
@@ -136,7 +111,6 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
         t_zero = random.randrange(0, len_spectro - t)
         # avoids randrange error if values are equal and range is empty
         if (t_zero == t_zero + t): return cloned
-
         mask_end = random.randrange(t_zero, t_zero + t)
         if splice_out:
             a = cloned2[0][:, :t_zero - 1]
@@ -152,8 +126,6 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
     print(cloned.shape)
     return cloned
 
-
-
 # скрещивание
 header_len = 44
 def crossover(x1, x2):
@@ -166,7 +138,6 @@ def crossover(x1, x2):
         if np.random.random() < 0.5:
             ba2[i] = ba1[i]
     return ba2.squeeze(0)
-
 
 # мутация
 mutation_p = 0.0005
@@ -184,19 +155,7 @@ def mutation(x):
     return x.unsqueeze(0)
 
 # hidden voice commands - туда обратно MFCC
-
-from librosa.feature.inverse import mfcc_to_audio
-from torchaudio.transforms import MFCC
-
 def hidden_voice_commands(samples):
     transformator = MFCC()
     mfcc = transformator(samples)
-    return mfcc_to_audio(mfcc.numpy())
-
-"""
-data, samples_rate = torchaudio.load('C:\\Users\\yulch\\PycharmProjects\\testAugmentations\\speech_commands_v0.01\\bird\\0a7c2a8d_nohash_0.wav')
-res = random_phase_generation(data)
-torchaudio.save('tmp9.wav',
-                            res,
-                            16000)
-"""
+    return torch.from_numpy(mfcc_to_audio(mfcc.numpy()))

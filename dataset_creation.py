@@ -1,16 +1,11 @@
 import hashlib
 import os
 import random
-from random import shuffle
 import re
 from typing import Union
-
 import torch
-from torch import Tensor
 import torchaudio
 from torch.utils.data import Dataset as torchDataset
-
-
 
 MAX_NUM_WAVS_PER_CLASS = 2 ** 27 - 1
 
@@ -43,16 +38,11 @@ def which_set(filename: str, validation_percentage: Union[int, float],
 
     return result
 
-
-
 def get_class_name(file_path):
     return file_path.split('/')[-2]
 
-
 def get_speaker_id(file_path):
-
     return re.sub('.wav', '', file_path.split('_nohash_')[1])
-
 
 def split_train_val_test(source_files_paths: list, file_name_template: str):
     train_files = []
@@ -75,16 +65,12 @@ def split_train_val_test(source_files_paths: list, file_name_template: str):
         elif part_type == 'testing':
             test_files.append(file_path)
 
-
     return {"train": train_files,
             "validation": val_files,
             "test": test_files,
             "class_to_id": class_to_id}
 
-
-
 class SoundDS(torchDataset):
-
     def __init__(self, source_files: list, class_to_id: dict):
         self.data = source_files
         self.duration = 1000  # длительность
@@ -120,7 +106,6 @@ class SoundDS(torchDataset):
         spect = torchaudio.transforms.AmplitudeToDB(top_db=self.top_db)(spect)
         spect = self.change_number_of_channels(spect, 3)
         return spect, elem["class_id"]
-
     def _pad_trunc(self, samples, sr):
         num_rows, signal_len = samples.shape
         max_len = sr // 1000 * self.duration
@@ -141,21 +126,17 @@ class SoundDS(torchDataset):
             samples = torch.cat((pad_begin, samples, pad_end), 1)
 
         return samples
-
     def change_number_of_channels(self, spect, num_channel):
         if (spect.shape[0] == num_channel):
             # Nothing to do
             return spect
-
         if (num_channel == 1):
             # Convert from stereo to mono by selecting only the first channel
             spect = spect[:1, :]
         else:
             # Convert from mono to stereo by duplicating the first channel
             spect = torch.cat([spect, spect, spect])
-
         return spect
-
 
 def load_from_file(source_files: list, class_to_id):
     data = []
@@ -170,7 +151,6 @@ def load_from_file(source_files: list, class_to_id):
 
 def get_class_name_augment(filename):
     return filename.split('class_')[1].split('_number')[0]
-
 
 def load_from_file_augment(source_files: list, class_to_id):
     data = []
