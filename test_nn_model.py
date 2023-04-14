@@ -86,8 +86,8 @@ def main():
     dataset["train"] = load_from_file(dataset_tmp["train"], class_to_id)
     dataset["validation"] = load_from_file(dataset_tmp["validation"], class_to_id)
     dataset["test"] = load_from_file(dataset_tmp["test"], class_to_id)
-    #original_test(dataset, 'original_conf_matrix.png')
-    #mel_gan_test(dataset, 'melgan_conf_matrix.png')
+    #original_test(dataset, 'original2_conf_matrix.png')
+    mel_gan_test(dataset, 'melgan2_conf_matrix.png')
     #diffwave_test(dataset, 'diffwave_conf_matrix.png', 'diffwave_weights_state.pth')
 
 main()
