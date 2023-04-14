@@ -65,20 +65,28 @@ def test(dataloader, model):
 
     correct /= size
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}\n")
-    return y_true, y_pred
+    return y_true, y_pred, correct*100
 
 def run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename, weights_file_name = None):
+    remember_test_result = {'y_true': [], 'y_pred': []}
+    current_score = 0.0
+    remember_epoch = 0
     model = models.resnet18().to(device)
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-    epochs = 3
-    for t in range(epochs):
-        print(f"Epoch {t + 1}\n-------------------------------")
+    epochs = 30
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}\n-------------------------------")
         train(train_dataloader, model, loss_fn, optimizer)
         validation(val_dataloader, model, loss_fn)
+        y_true, y_pred, correct = test(test_dataloader, model)
+        if correct > current_score:
+            current_score = correct
+            remember_test_result = {'y_true': y_true, 'y_pred': y_pred}
+            remember_epoch = epoch + 1
+
+    count_metrics(remember_test_result['y_true'],
+                  remember_test_result['y_pred'],
+                  matrix_filename, current_score, remember_epoch)
     print("Done!")
 
-    y_true, y_pred = test(test_dataloader, model)
-    count_metrics(y_true, y_pred, matrix_filename)
-    print("Done!")

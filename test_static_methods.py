@@ -73,8 +73,8 @@ def augment_data(dataset, method_name):
                                "class_id": audio["class_id"]})
     return augmented_data
 
-def augmentation_ram_test(dataset_tmp, matrix_filename, augment_data_function):
-    augmented_audio = augment_data_function(dataset_tmp["train"])
+def augmentation_ram_test(dataset_tmp, matrix_filename, augment_function):
+    augmented_audio = augment_data(dataset_tmp["train"], augment_function)
     dataset_tmp["train"] = dataset_tmp["train"] + augmented_audio
     train_dataloader, val_dataloader, test_dataloader = prepare_dataset(dataset_tmp)
     run_resnet(train_dataloader, val_dataloader, test_dataloader, matrix_filename)
@@ -114,14 +114,14 @@ def augment_and_save_audio(dataset_tmp,
 
 def random_phase_generation_test(dataset_tmp, matrix_filename, folder_name):
     augmentation_disk_test(dataset_tmp, matrix_filename, folder_name)
-def time_domain_inversion_test(dataset_tmp, matrix_filename, augment_data_function):
-    augmentation_ram_test(dataset_tmp, matrix_filename, augment_data_function)
-def high_frequency_addition_test(dataset_tmp, matrix_filename, augment_data_function):
-    augmentation_ram_test(dataset_tmp, matrix_filename, augment_data_function)
+def time_domain_inversion_test(dataset_tmp, matrix_filename, augment_function):
+    augmentation_ram_test(dataset_tmp, matrix_filename, augment_function)
+def high_frequency_addition_test(dataset_tmp, matrix_filename, augment_function):
+    augmentation_ram_test(dataset_tmp, matrix_filename, augment_function)
 def mutation_test(dataset_tmp, matrix_filename, folder_name):
     augmentation_disk_test(dataset_tmp, matrix_filename, folder_name)
-def crossover_test(dataset_tmp, matrix_filename, augment_data_function):
-    augmentation_ram_test(dataset_tmp, matrix_filename, augment_data_function)
+def crossover_test(dataset_tmp, matrix_filename, augment_function):
+    augmentation_ram_test(dataset_tmp, matrix_filename, augment_function)
 def hidden_voice_commands_test(dataset_tmp, matrix_filename, folder_name):
     augmentation_disk_test(dataset_tmp, matrix_filename, folder_name)
 
@@ -150,7 +150,8 @@ def main():
     #high_frequency_addition_test(dataset, 'hfa_conf_matrix.png', high_frequency_addition)
     #random_phase_generation_test(dataset, 'rpg_conf_matrix.png', random_phase_generation)
     #mutation_test(dataset, 'mutation_conf_matrix.png', mutation)
-    #crossover_test(dataset, 'crossover_conf_matrix.png', crossover)
+    crossover_test(dataset, 'crossover_conf_matrix.png', crossover)
     #hidden_voice_commands_test(dataset, 'hvc_conf_matrix.png', hidden_voice_commands)
+    #hidden_voice_commands_audio(dataset, 5)
 
 main()
