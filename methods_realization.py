@@ -20,20 +20,23 @@ def butter_lowpass_filter(data, cutoff, nyq, order):
     y = filtfilt(b, a, data)
     return y
 
-def unaudible_voice_command(samples, fs = 16000,
-                                     cutoff = 8000,
-                                     nyq = 1,
-                                     order = 2,
-                                     n1 = 0,
-                                     n2 = 0,
-                                     return_wav_format = True):
+def inaudible_voice_command(samples: torch.Tensor,
+                            sample_rate: int = 16000,
+                            cutoff: int = 8000,
+                            nyq: int = 1,
+                            order: int = 2,
+                            n1: int = 0,
+                            n2: int = 0,
+                            resample_rate = 192000,
+                            carrier_freq = 30000,
+                            return_wav_format = True):
     # Low-Pass Filtering
-    nf = nyq * fs  # Nyquist Frequency
+    nf = nyq * sample_rate  # Nyquist Frequency
     low_pass_filtered_waveform = butter_lowpass_filter(samples, cutoff, nf, order)
 
     # Upsampling
-    resample_rate = 192000
-    resampler = transform.Resample(16000, resample_rate)
+    resample_rate = resample_rate
+    resampler = transform.Resample(sample_rate, resample_rate)
     resampled_waveform = resampler(torch.Tensor(low_pass_filtered_waveform.copy()))
     if n1 != 0:
         resampled_waveform *= n1
@@ -41,7 +44,7 @@ def unaudible_voice_command(samples, fs = 16000,
         resampled_waveform = 1 / max(abs(resampled_waveform)) * resampled_waveform
 
     # Ultrasound Modulation
-    carrier_freq = 30000
+    carrier_freq = carrier_freq
     dt = 1 / resample_rate
     t = np.arange(0, resample_rate*dt, dt)
     a = list(map(lambda x: math.cos(2 * math.pi * carrier_freq * x), t))
@@ -61,15 +64,18 @@ def unaudible_voice_command(samples, fs = 16000,
     return ultrasound.unsqueeze(0)
 
 # TimeDomainInversion
-def time_domain_inversion(samples):
+def time_domain_inversion(samples: torch.Tensor, window_of_sampling: int):
     tmp = samples.squeeze(0)
     new_sample = []
-    for i in batch(tmp, 10):
+    for i in batch(tmp, window_of_sampling):
         new_sample += reversed(i)
     return torch.Tensor(new_sample).unsqueeze(0)
 
 # AdditionHighFrequencies
-def high_frequency_addition(samples, n_fft=1024, n_additional_stft = 32, raising_frequency = 32):
+def high_frequency_addition(samples: torch.Tensor,
+                            n_fft: int = 1024,
+                            n_additional_stft: int = 32,
+                            raising_frequency: int = 32):
     stft_coefficients = stft(samples, n_fft=n_fft, return_complex=True).squeeze(0)
     stft_coefficients = torch.cat([stft_coefficients,
                                    stft_coefficients[:n_additional_stft] + raising_frequency])
@@ -77,8 +83,8 @@ def high_frequency_addition(samples, n_fft=1024, n_additional_stft = 32, raising
     return istft(stft_coefficients.unsqueeze(0), n_fft=new_n_fft)
 
 # PhaseGeneration
-def random_phase_generation(samples):
-    stft_coefficients = stft(samples, n_fft=1024, return_complex=True).squeeze(0)
+def random_phase_generation(samples: torch.Tensor, n_fft: int = 1024):
+    stft_coefficients = stft(samples, n_fft=n_fft, return_complex=True).squeeze(0)
     for i in range(len(stft_coefficients)):
         tmp = stft_coefficients[i]
         for j in range(len(tmp)):
@@ -87,16 +93,53 @@ def random_phase_generation(samples):
             y = torch.Tensor([math.fabs(math.sqrt(
                 math.pow(float(tmp[j].real), 2) + math.pow(float(tmp[j].imag), 2)))]).type(torch.float)[0]
             local_real_min, local_real_max = -y, y
-            amplitude_real = random.uniform(local_real_min, local_real_max)
+            amplitude_imag = random.uniform(local_real_min, local_real_max)
             sign = 1 if random.random() < 0.5 else -1
             try:
-                amplitude_imag = math.sqrt(math.pow(y, 2) - math.pow(amplitude_real, 2))
+                amplitude_real = math.sqrt(math.pow(y, 2) - math.pow(amplitude_imag, 2))
             except Exception:
                 raise Exception
             complex_amplitude = torch.complex(torch.Tensor([amplitude_real]).type(torch.float),
                                               sign * torch.Tensor([amplitude_imag]).type(torch.float))
             stft_coefficients[i][j] = complex_amplitude.unsqueeze(0)
-    return istft(stft_coefficients.unsqueeze(0), n_fft=1024)
+    return istft(stft_coefficients.unsqueeze(0), n_fft=n_fft)
+
+# скрещивание
+
+def crossover(x1: torch.Tensor, x2: torch.Tensor, header_length: int = 44, skip_step: int = 2):
+    x1 = x1.squeeze(0)
+    x2 = x2.squeeze(0)
+    if len(x1) > len(x2):
+        x1, x2 = x2, x1
+    for i in range(header_length, len(x2), skip_step):
+        if np.random.random() < 0.5:
+            x2[i] = x1[i]
+    return x2.unsqueeze(0)
+
+# мутация
+
+def mutation(x: torch.Tensor,
+             header_length: int = 44,
+             mutation_p: float = 0.0005,
+             data_max: int = 32767,
+             data_min: int = -32768):
+
+    x = x.squeeze(0)
+    max_x = abs(max(x))
+    min_x = abs(min(x))
+    eps_limit = max_x if max_x > min_x else min_x
+    for i in range(header_length, len(x)):
+        if np.random.random() < mutation_p:
+            new_int_x = min(data_max, max(data_min, x[i] + random.uniform(-eps_limit, eps_limit)))
+            x[i] = new_int_x
+    return x.unsqueeze(0)
+
+# hidden voice commands - туда обратно MFCC
+def hidden_voice_commands(samples):
+    transformator = MFCC()
+    mfcc = transformator(samples)
+    return torch.from_numpy(mfcc_to_audio(mfcc.numpy()))
+
 
 #Splice OUT https://arxiv.org/pdf/2110.00046.pdf
 def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False):
@@ -125,37 +168,3 @@ def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False)
             cloned[0][:, t_zero:mask_end] = cloned.mean()
     print(cloned.shape)
     return cloned
-
-# скрещивание
-header_len = 44
-def crossover(x1, x2):
-    ba1 = x1.unsqueeze(0)
-    ba2 = x2.unsqueeze(0)
-    step = 2
-    # if bps == 8:
-    #    step = 1
-    for i in range(header_len, len(x1), step):
-        if np.random.random() < 0.5:
-            ba2[i] = ba1[i]
-    return ba2.squeeze(0)
-
-# мутация
-mutation_p = 0.0005
-data_max = 32767
-data_min = -32768
-def mutation(x):
-    x = x.squeeze(0)
-    max_x = abs(max(x))
-    min_x = abs(min(x))
-    eps_limit = max_x if max_x > min_x else min_x
-    for i in range(header_len, len(x)):
-        if np.random.random() < mutation_p:
-            new_int_x = min(data_max, max(data_min, x[i] + random.uniform(-eps_limit, eps_limit)))
-            x[i] = new_int_x
-    return x.unsqueeze(0)
-
-# hidden voice commands - туда обратно MFCC
-def hidden_voice_commands(samples):
-    transformator = MFCC()
-    mfcc = transformator(samples)
-    return torch.from_numpy(mfcc_to_audio(mfcc.numpy()))
