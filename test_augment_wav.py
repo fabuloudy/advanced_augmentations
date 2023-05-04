@@ -3,7 +3,7 @@ import argparse
 import torchaudio
 
 
-from methods_realization import time_domain_inversion, \
+from static_methods_realization import time_domain_inversion, \
                                 random_phase_generation, \
                                 high_frequency_addition, \
                                 inaudible_voice_command, \
@@ -11,6 +11,7 @@ from methods_realization import time_domain_inversion, \
                                 hidden_voice_commands, \
                                 time_mask
 
+from generative_models_usage import MelGanTool, DiffWaveTool
 
 
 separator = '/'
@@ -61,7 +62,7 @@ def test_augmentations(os: str):
 
     torchaudio.save(s('test%augmented_examples%crossover_left.wav'), crossover_audio_left, sample_rate=sample_rate_left)
     torchaudio.save(s('test%augmented_examples%crossover_right.wav'), crossover_audio_right, sample_rate=sample_rate_right)
-'''
+    
     #Mutation
     mutation_audio_left = mutation(source_audio_left)
     mutation_audio_right = mutation(source_audio_right)
@@ -70,7 +71,28 @@ def test_augmentations(os: str):
     torchaudio.save(s('test%augmented_examples%mutation_right.wav'), mutation_audio_right, sample_rate=sample_rate_right)
 
     #HiddenVoiceCommands
-    #SpliceOUT
+    hvc_audio_left = hidden_voice_commands(source_audio_left)
+    hvc_audio_right = hidden_voice_commands(source_audio_right)
+
+    torchaudio.save(s('test%augmented_examples%hvc_left.wav'), hvc_audio_left, sample_rate=sample_rate_left)
+    torchaudio.save(s('test%augmented_examples%hvc_right.wav'), hvc_audio_right, sample_rate=sample_rate_right)
+
+    melgan_tool = MelGanTool()
+
+    melgan_audio_left = melgan_tool.augment_audio(source_audio_left)
+    melgan_audio_right = melgan_tool.augment_audio(source_audio_right)
+
+    torchaudio.save(s('test%augmented_examples%melgan_left.wav'), melgan_audio_left, sample_rate=sample_rate_left)
+    torchaudio.save(s('test%augmented_examples%melgan_right.wav'), melgan_audio_right, sample_rate=sample_rate_right)
+'''
+    diffwave_tool = DiffWaveTool()
+
+    diffwave_audio_left = diffwave_tool.augment_audio(source_audio_left)
+    diffwave_audio_right = diffwave_tool.augment_audio(source_audio_right)
+
+    torchaudio.save(s('test%augmented_examples%diffwave_left.wav'), diffwave_audio_left, sample_rate=sample_rate_left)
+    torchaudio.save(s('test%augmented_examples%diffwave_right.wav'), diffwave_audio_right, sample_rate=sample_rate_right)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test augmentations method')
