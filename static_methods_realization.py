@@ -95,13 +95,14 @@ def random_phase_generation(samples: torch.Tensor, n_fft: int = 1024) -> torch.T
                 math.pow(float(tmp[j].real), 2) + math.pow(float(tmp[j].imag), 2)))]).type(torch.float)[0]
             local_real_min, local_real_max = -y, y
             amplitude_imag = random.uniform(local_real_min, local_real_max)
-            sign = 1 if random.random() < 0.5 else -1
+            sign_real = 1 if random.random() < 0.5 else -1
             try:
-                amplitude_real = math.sqrt(math.pow(y, 2) - math.pow(amplitude_imag, 2))
+                amplitude_real = sign_real * math.sqrt(math.pow(y, 2) - math.pow(amplitude_imag, 2))
             except Exception:
                 raise Exception
+            sign_imag = 1 if random.random() < 0.5 else -1
             complex_amplitude = torch.complex(torch.Tensor([amplitude_real]).type(torch.float),
-                                              sign * torch.Tensor([amplitude_imag]).type(torch.float))
+                                              sign_imag * torch.Tensor([amplitude_imag]).type(torch.float))
             stft_coefficients[i][j] = complex_amplitude.unsqueeze(0)
     return istft(stft_coefficients.unsqueeze(0), n_fft=n_fft)
 
@@ -110,7 +111,7 @@ def random_phase_generation(samples: torch.Tensor, n_fft: int = 1024) -> torch.T
 def crossover(x1: torch.Tensor,
               x2: torch.Tensor,
               header_length: int = 44,
-              skip_step: int = 2,) -> torch.Tensor:
+              skip_step: int = 2) -> torch.Tensor:
     x1 = x1.squeeze(0)
     x2 = x2.squeeze(0)
     if len(x1) > len(x2):
@@ -163,31 +164,3 @@ def hidden_voice_commands(samples: torch.Tensor,
                           hop_length = out_hop_lenght,
                           win_length = out_win_lenght)
     return torch.from_numpy(audio)
-
-
-def time_mask(spec, T=5, num_masks=1, replace_with_zero=False, splice_out=False):
-    cloned = spec.clone()
-    cloned2 = spec.clone()
-    len_spectro = cloned.shape[2]
-
-    for i in range(0, num_masks):
-        t = random.randrange(0, T)
-        if t >= len_spectro:
-            return cloned
-        t_zero = random.randrange(0, len_spectro - t)
-        # avoids randrange error if values are equal and range is empty
-        if (t_zero == t_zero + t): return cloned
-        mask_end = random.randrange(t_zero, t_zero + t)
-        if splice_out:
-            a = cloned2[0][:, :t_zero - 1]
-            b = cloned2[0][:, mask_end:]
-            new_spec = torch.cat((a, b), -1)
-            print(new_spec.shape)
-            new_dim_spec = torch.cat([new_spec.unsqueeze(0), new_spec.unsqueeze(0), new_spec.unsqueeze(0)], 0)
-            return new_dim_spec
-        elif replace_with_zero:
-            cloned[0][:, t_zero:mask_end] = 0
-        else:
-            cloned[0][:, t_zero:mask_end] = cloned.mean()
-    print(cloned.shape)
-    return cloned
