@@ -1,12 +1,6 @@
 import torch
 import torchaudio.transforms as TT
 
-class AugmentationMethod:
-    def __init__(self, function):
-        pass
-
-    def __call__(self, *args, **kwargs):
-        pass
 
 def transform(audio, sr = 22050):
     audio = torch.clamp(audio, -1.0, 1.0)
@@ -38,3 +32,9 @@ def batch(iterable, n=400):
 def get_batch(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+def pad(waveform):
+    padding = (0, 16000 - waveform.shape[1])
+    pad = torch.nn.ZeroPad2d(padding)
+    waveform = pad(waveform)
+    return waveform
