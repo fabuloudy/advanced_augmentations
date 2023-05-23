@@ -8,8 +8,7 @@ from static_methods_realization import time_domain_inversion, \
                                 high_frequency_addition, \
                                 inaudible_voice_command, \
                                 crossover, mutation, \
-                                hidden_voice_commands, \
-                                time_mask
+                                hidden_voice_commands
 
 from generative_models_usage import MelGanTool, DiffWaveTool
 
@@ -31,14 +30,14 @@ def test_augmentations(os: str):
 
     torchaudio.save(s('test%augmented_examples%tdi_left.wav'), tdi_audio_left, sample_rate = sample_rate_left)
     torchaudio.save(s('test%augmented_examples%tdi_right.wav'), tdi_audio_right, sample_rate = sample_rate_right)
-    
+    '''
     # RandomPhaseGeneration
     rpg_audio_left = random_phase_generation(source_audio_left)
     rpg_audio_right = random_phase_generation(source_audio_right)
 
     torchaudio.save(s('test%augmented_examples%rpg_left.wav'), rpg_audio_left, sample_rate=sample_rate_left)
     torchaudio.save(s('test%augmented_examples%rpg_right.wav'), rpg_audio_right, sample_rate=sample_rate_right)
-
+'''
     # HighFrequencyAddition
     hfa_audio_left = high_frequency_addition(source_audio_left)
     hfa_audio_right = high_frequency_addition(source_audio_right)
@@ -84,7 +83,7 @@ def test_augmentations(os: str):
 
     torchaudio.save(s('test%augmented_examples%melgan_left.wav'), melgan_audio_left, sample_rate=sample_rate_left)
     torchaudio.save(s('test%augmented_examples%melgan_right.wav'), melgan_audio_right, sample_rate=sample_rate_right)
-'''
+
     diffwave_tool = DiffWaveTool()
 
     diffwave_audio_left = diffwave_tool.augment_audio(source_audio_left)
@@ -92,7 +91,7 @@ def test_augmentations(os: str):
 
     torchaudio.save(s('test%augmented_examples%diffwave_left.wav'), diffwave_audio_left, sample_rate=sample_rate_left)
     torchaudio.save(s('test%augmented_examples%diffwave_right.wav'), diffwave_audio_right, sample_rate=sample_rate_right)
-
+'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test augmentations method')
