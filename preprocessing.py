@@ -5,6 +5,7 @@ import torchaudio
 def get_class_name(file_path):
     return file_path.split('/')[-2]
 
+
 def load_from_file(source_files: list, class_to_id):
     data = []
     for file_path in source_files:
